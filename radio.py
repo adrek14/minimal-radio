@@ -1,19 +1,26 @@
 #!/usr/bin/python2.7
 
+# gta-like-radio - Radio stream player with a cyclic interface.
 #
-# GTA-like radio widget
-# 
-# Requires: 
-# - mplayer
-# - notify-send (libnotify-bin)
+# Copyright (C) 2013 Adrian Lancucki
 #
-# Adrian Lancucki, 25-01-2012
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import signal
 import sys
 import os
-import errno # XXX ???
+import errno
 
 from subprocess import check_output
 
