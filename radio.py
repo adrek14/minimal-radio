@@ -24,6 +24,8 @@ import errno
 
 from subprocess import check_output
 
+import stations
+
 ABS_PATH_REL_TO_SRC = lambda x: os.path.normpath(os.path.join(
                                     os.path.dirname(os.path.abspath(__file__)),
                                     x))
@@ -112,13 +114,8 @@ class Radio:
 
     def __init__(self):
         # (name, stream, path_to_image, mplayer_args) 
-        self.stations = [self.Station("Radio off", "", "off.xpm"),
-            self.Station("ESKA Rock", "http://www.radio.pionier.net.pl/stream.pls?radio=eskarockmp3", "eskarock.xpm"),
-            self.Station("Radio Wroclaw", "http://www.radio.pionier.net.pl/stream.pls?radio=prwroclaw", "prw.xpm", ["-demuxer", "ogg"]),
-            self.Station("Program 3", "rtmp://stream85.polskieradio.pl/live/pr3.sdp", "pr3.xpm"),
-            self.Station("Zlote Przeboje", "http://poznan7.radio.pionier.net.pl:8000/tuba9-1.mp3", "zlote.xpm", ["-softvol", "-volume", "40"]),
-            self.Station("Chilli Zet", "http://www.chillizet.pl/externals/chillizet-streams/chillizetmp3.pls", "chilli.xpm", ["-softvol", "-volume", "60", "-playlist"]),
-            self.Station("OpenFM: Ballady", "rtmp://91.197.14.46:80/shoutcast/20", "openfm.xpm")]
+
+        self.stations = [self.Station("Radio off", "", "off.xpm")] + stations.stations
 
         self.curr_station_ind, self.spawned_pid = 0, -1
         self.stopped = False
