@@ -32,6 +32,72 @@ STATION_ICON_DIR = ABS_PATH_REL_TO_SRC('station_icons/')
 
 PIDFILE_PATH = '/tmp/radio-g.pid'
 
+class PidLock:
+
+    @staticmethod
+    def acquire_lock():
+        
+        fd = None
+        for attempt_num in range(2):
+        
+            try:
+                fd = os.open(PIDFILE_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                break
+            except OSError, e:
+                if e.errno != errno.EEXIST:
+                    raise
+                # There was a pid file with no corresponding process.
+                # Someone has created a pidfile in the meantime.
+                if attempt_num == 1:
+                    raise
+        
+            # Opening failed in the first loop; check if the old process is running.
+            old_pid = PidLock.get_pidfile_pid()
+        
+            if PidLock.is_running_with_pid(old_pid):
+                return (False, old_pid)
+                    
+            try:
+                os.unlink(PIDFILE_PATH)
+            except:
+                # The process is not running.
+                raise
+        
+        # If got here, then the fd was safely acquired.
+        # Write pid. Save.
+        try:
+            new_pid = os.getpid()
+            os.write(fd, str(new_pid))
+            os.close(fd)
+        except:
+            raise
+        
+        return (True, new_pid)
+
+    @staticmethod
+    def is_running_with_pid(pid):
+
+        ret = check_output(
+                  'ps up '+str(pid)+' >/dev/null && echo "1" || echo "0"',
+                  shell=True)
+
+        return True if ret.rstrip() == "1" else False
+
+    @staticmethod
+    def get_pidfile_pid():
+
+        try: 
+            fd = os.open(PIDFILE_PATH, os.O_RDWR)
+            pid = os.read(fd, 1024).strip()
+            os.close(fd)
+        except:
+            return -1
+
+        try:
+            return int(pid)
+        except ValueError:
+            return -1
+
 class Radio:
 
     class Station:
@@ -95,11 +161,13 @@ class Radio:
         if self.curr_station_ind == 0:
             self.notify("(Bye bye!)")
             return
+
         self.notify("Connecting...")
  
         # Fire off the thread & remember it's pid.
         args = ["mplayer"] + self.current_station().args + \
                [self.current_station().url]
+
         self.spawned_pid = os.spawnvp(os.P_NOWAIT, "mplayer", args)
 
     def next_station(self):
@@ -133,24 +201,21 @@ def signal_handler(sig, frame):
 
 if __name__ == "__main__":
 
-    # Find out if there is a pid file
-    try:
-        pid = int(open(PIDFILE_PATH, "r").read())
-    except IOError as e:
-        pid = os.getpid()
-        file(PIDFILE_PATH, 'w').write(str(pid))
+    (lock_acquired, pid) = PidLock.acquire_lock()
 
-    if os.getpid() != pid:
-        if len(sys.argv) > 1 and sys.argv[1] == "-toggle":
-            os.kill(pid, signal.SIGUSR1)
-        else:
-            os.kill(pid, signal.SIGALRM)
-    
-    else:
+    if lock_acquired:
         radio = Radio()
     
         signal.signal(signal.SIGALRM, signal_handler) # Connect a station-switching signal.
         signal.signal(signal.SIGUSR1, signal_handler) # Connect a Play/pause signal.
-      
+
         while(True):
             signal.pause()
+    else:
+        if len(sys.argv) > 1 and sys.argv[1] == "-toggle":
+            os.kill(pid, signal.SIGUSR1)
+        else:
+            os.kill(pid, signal.SIGALRM)
+
+    sys.exit(0)
+
