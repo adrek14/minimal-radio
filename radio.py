@@ -21,8 +21,9 @@ import signal
 import sys
 import os
 import errno
+import fcntl
 
-from subprocess import check_output
+# from subprocess import check_output
 
 import stations
 
@@ -36,69 +37,68 @@ PIDFILE_PATH = '/tmp/radio-g.pid'
 
 class PidLock:
 
-    @staticmethod
-    def acquire_lock():
-        
-        fd = None
-        for attempt_num in range(2):
-        
-            try:
-                fd = os.open(PIDFILE_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                break
-            except OSError, e:
-                if e.errno != errno.EEXIST:
-                    raise
-                # There was a pid file with no corresponding process.
-                # Someone has created a pidfile in the meantime.
-                if attempt_num == 1:
-                    raise
-        
-            # Opening failed in the first loop; check if the old process is running.
-            old_pid = PidLock.get_pidfile_pid()
-        
-            if PidLock.is_running_with_pid(old_pid):
-                return (False, old_pid)
-                    
-            try:
-                os.unlink(PIDFILE_PATH)
-            except:
-                # The process is not running.
-                raise
-        
-        # If got here, then the fd was safely acquired.
-        # Write pid. Save.
+    def __init__(self):
+        self.fp = None
+
+    def acquire_lock(self):
+
         try:
-            new_pid = os.getpid()
-            os.write(fd, str(new_pid))
-            os.close(fd)
+            self.fp = open(PIDFILE_PATH, 'a+')
         except:
+            print "Cannot open pidfile."
+            sys.exit(1)
+
+        try:
+            fcntl.flock(self.fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError:
+            # Somebody else is holding the lock.
+            return False
+        except:
+            print "Cannot lock."
             raise
-        
-        return (True, new_pid)
+            sys.exit(1)
 
-    @staticmethod
-    def is_running_with_pid(pid):
+        self.fp.seek(0)
+        self.fp.truncate()
+        self.fp.write(str(os.getpid()))
+        self.fp.flush()
+        self.fp.seek(0)
 
-        ret = check_output(
-                  'ps up '+str(pid)+' >/dev/null && echo "1" || echo "0"',
-                  shell=True)
+        return True
 
-        return True if ret.rstrip() == "1" else False
+    def __del__(self):
+        print "__del__"
+        self.release_lock()
 
-    @staticmethod
-    def get_pidfile_pid():
+    def release_lock(self):
 
-        try: 
-            fd = os.open(PIDFILE_PATH, os.O_RDWR)
-            pid = os.read(fd, 1024).strip()
-            os.close(fd)
-        except:
-            return -1
+        print "releasing lock"
+        if self.fp == None:
+            return
 
         try:
-            return int(pid)
+            self.fp.close()
+        except:
+            pass
+
+    def pidfile_pid(self):
+
+        pid = None
+        try:
+            pidfile = open(PIDFILE_PATH, 'r')
+            pid = pidfile.readline().strip()
+            pid = int(pid)
+            pidfile.close()
+        except IOError:
+            print "Cannot read pid from pidfile."
+            return None
         except ValueError:
-            return -1
+            print "Pidfile doesn't containt a valid pid."
+            return None
+        except:
+            return None
+
+        return pid
 
 class Radio:
 
@@ -198,9 +198,10 @@ def signal_handler(sig, frame):
 
 if __name__ == "__main__":
 
-    (lock_acquired, pid) = PidLock.acquire_lock()
+    pidlock = PidLock()
 
-    if lock_acquired:
+    if pidlock.acquire_lock():
+
         radio = Radio()
     
         signal.signal(signal.SIGALRM, signal_handler) # Connect a station-switching signal.
@@ -209,6 +210,12 @@ if __name__ == "__main__":
         while(True):
             signal.pause()
     else:
+
+        pid = pidlock.pidfile_pid()
+
+        if pid == None:
+            sys.exit(1)
+
         if len(sys.argv) > 1 and sys.argv[1] == "-toggle":
             os.kill(pid, signal.SIGUSR1)
         else:
