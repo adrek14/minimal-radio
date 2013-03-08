@@ -20,10 +20,7 @@
 import signal
 import sys
 import os
-import errno
 import fcntl
-
-# from subprocess import check_output
 
 import stations
 
@@ -36,17 +33,22 @@ STATION_ICON_DIR = ABS_PATH_REL_TO_SRC('station_icons/')
 PIDFILE_PATH = '/tmp/radio-g.pid'
 
 class PidLock:
+    """This class provides basic pidfile manipulation (reading, writing),
+    and also uses fcntl to lock the file. Upon successfull locking,
+    pidfile will be open as long as __del__ or release_lock() was called.
+    """
 
     def __init__(self):
         self.fp = None
 
     def acquire_lock(self):
+        """Attempts to lock the file and write pid (returns True/False)."""
 
         try:
             self.fp = open(PIDFILE_PATH, 'a+')
         except:
             print "Cannot open pidfile."
-            sys.exit(1)
+            raise
 
         try:
             fcntl.flock(self.fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -56,7 +58,6 @@ class PidLock:
         except:
             print "Cannot lock."
             raise
-            sys.exit(1)
 
         self.fp.seek(0)
         self.fp.truncate()
@@ -67,10 +68,11 @@ class PidLock:
         return True
 
     def __del__(self):
-        print "__del__"
+        """Releases the resources upon deletion."""
         self.release_lock()
 
     def release_lock(self):
+        """Closes the pidfile, automatically releasing the lock."""
 
         print "releasing lock"
         if self.fp == None:
@@ -82,6 +84,7 @@ class PidLock:
             pass
 
     def pidfile_pid(self):
+        """Gets pid from an existing pidfile."""
 
         pid = None
         try:
@@ -101,9 +104,15 @@ class PidLock:
         return pid
 
 class Radio:
+    """Radio interface holding the list of stations."""
 
     class Station:
-        def __init__(self, name, url, image="", args=[]):
+        """A concrete radio station (online stream)."""
+
+        def __init__(self, name, url, image="", mplayer_args=[]):
+            """Mplayer args might, for instance, be used to normalize the volume
+            across different streams.
+            """
             self.name, self.url = name, url
             self.args = args
 
@@ -113,7 +122,6 @@ class Radio:
             # TODO If none or not exists, then assign a default.
 
     def __init__(self):
-        # (name, stream, path_to_image, mplayer_args) 
 
         self.stations = [self.Station("Radio off", "", "off.xpm")] + stations.stations
 
@@ -125,6 +133,9 @@ class Radio:
         return self.stations[self.curr_station_ind]
 
     def notify(self, msg, time_ms="700"):
+        """Sends a notification (through notify-send command)
+        about the current station.
+        """
         args = ["notify-send", "-t", time_ms]
 
         # Append an icon if available.
@@ -136,6 +147,7 @@ class Radio:
         # XXX Popen?
 
     def clear_station(self):
+        """Terminates the process associated with the current radio station."""
 
         # Send SIGINT to the last thread.
         if self.spawned_pid != -1:
@@ -145,6 +157,8 @@ class Radio:
                 pass
  
     def toggle(self):
+        """Stops/plays the stream."""
+
         if self.stopped:
             self.connect_station()
         else:
@@ -153,6 +167,8 @@ class Radio:
         self.stopped = not self.stopped
 
     def connect_station(self):
+        """Attempts to connect to stream using mplayer."""
+
         self.clear_station()
 
         if self.curr_station_ind == 0:
@@ -168,6 +184,8 @@ class Radio:
         self.spawned_pid = os.spawnvp(os.P_NOWAIT, "mplayer", args)
 
     def next_station(self):
+        """Switches to the next station in the list."""
+
         self.curr_station_ind += 1
         self.curr_station_ind %= len(self.stations)
 
@@ -177,22 +195,30 @@ class Radio:
             self.connect_station()
 
     def shutdown(self):
-        print "Shutting down..."
+        """Closes open radio stream and notifies about the shutdown."""
+
         self.clear_station()
         self.curr_station_ind = 0
         self.notify("(Bye bye!)")
+
+def signal_handler(sig, frame):
+    """Supported signals:
+        SIGINT - shutdown
+        SIGALRM - next station
+        SIGUSR1 - toggle play/stop
+    """
+
+    if sig == signal.SIGINT or radio.curr_station_ind == len(radio.stations)-1:
+        radio.shutdown()
         try:
             os.unlink(PIDFILE_PATH)
         except:
             raise
-        exit(0)
+        sys.exit(0)
 
-def signal_handler(sig, frame):
-
-    if sig == signal.SIGINT or radio.curr_station_ind == len(radio.stations)-1:
-        radio.shutdown()
     elif sig == signal.SIGALRM:
         radio.next_station()
+
     elif sig == signal.SIGUSR1:
         radio.toggle()
 
@@ -201,7 +227,6 @@ if __name__ == "__main__":
     pidlock = PidLock()
 
     if pidlock.acquire_lock():
-
         radio = Radio()
     
         signal.signal(signal.SIGALRM, signal_handler) # Connect a station-switching signal.
@@ -209,8 +234,8 @@ if __name__ == "__main__":
 
         while(True):
             signal.pause()
-    else:
 
+    else:
         pid = pidlock.pidfile_pid()
 
         if pid == None:
@@ -220,6 +245,4 @@ if __name__ == "__main__":
             os.kill(pid, signal.SIGUSR1)
         else:
             os.kill(pid, signal.SIGALRM)
-
-    sys.exit(0)
 
