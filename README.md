@@ -2,7 +2,7 @@ What is it (for)?
 -----------------
 It's a small python wrapper for `mplayer` and `notify-send`, targeted for Linux (well, any POSIX system with `mplayer` should do). It let's you __play Internet radio streams__ with a __minimalistic interface__ similar to that in the Grand Theft Auto series - a keystroke switches to the next station in the list with an OSD notifiation.
 
-Nowadays listening to online radio is hard - most of the stations want their custom, flash-based players to be used (presumably because of invovlved profits from commercials). Fortunately, underyling streams, being usually rtmp streams, can be sniffed out by examining the network traffic e.g. with [Wireshark](http://www.wireshark.org/)
+Nowadays listening to the radio via the Internet is hard - most of the stations force on you their custom, flash-based players (presumably because of invovlved profits from commercials). Fortunately, underyling streams, being usually rtmp streams, can be sniffed out by examining the network traffic e.g. with [Wireshark](http://www.wireshark.org/).
 
 *TODO: Throw in some links on wireshark sniffing.*
 
