@@ -33,8 +33,8 @@ STATION_ICON_DIR = ABS_PATH_REL_TO_SRC('station_icons/')
 PIDFILE_PATH = '/tmp/radio-g.pid'
 
 class PidLock:
-    """This class provides basic pidfile manipulation (reading, writing),
-    and also uses fcntl to lock the file. Upon successfull locking,
+    """Provides basic pidfile manipulation (reading, writing),
+    uses fcntl to lock it. Upon successfull locking,
     pidfile will be open as long as __del__ or release_lock() was called.
     """
 
