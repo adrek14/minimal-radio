@@ -16,6 +16,10 @@ stations = [
         "rtmp://stream85.polskieradio.pl/live/pr3.sdp",
         "pr3.xpm"),
     Radio.Station(
+        "Program 4",
+        "rtmp://stream85.polskieradio.pl/live/pr4.sdp",
+        "pr4.xpm"),
+    Radio.Station(
         "Zlote Przeboje",
         "http://poznan7.radio.pionier.net.pl:8000/tuba9-1.mp3",
         "zlote.xpm",

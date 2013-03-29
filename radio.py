@@ -107,14 +107,14 @@ class Radio:
     """Radio interface holding the list of stations."""
 
     class Station:
-        """A concrete radio station (online stream)."""
+        """A particular radio station (online stream)."""
 
         def __init__(self, name, url, image="", mplayer_args=[]):
             """Mplayer args might, for instance, be used to normalize the volume
             across different streams.
             """
             self.name, self.url = name, url
-            self.args = args
+            self.args = mplayer_args
 
             self.image_path = os.path.join(STATION_ICON_DIR, image)
             print self.image_path
