@@ -208,7 +208,8 @@ def signal_handler(sig, frame):
         SIGUSR1 - toggle play/stop
     """
 
-    if sig == signal.SIGINT or radio.curr_station_ind == len(radio.stations)-1:
+    if sig == signal.SIGINT or\
+       (sig == signal.SIGALRM and radio.curr_station_ind == len(radio.stations)-1):
         radio.shutdown()
         try:
             os.unlink(PIDFILE_PATH)
